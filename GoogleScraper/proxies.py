@@ -53,7 +53,7 @@ def parse_proxy_file(fname):
         raise ValueError('No such file/directory')
 
 def get_proxies(host, user, password, database, port=3306, unix_socket=None):
-    """"Connect to a mysql database using pymysql and retrieve proxies for the scraping job.
+    """Connect to a mysql database using pymysql and retrieve proxies for the scraping job.
 
     Args:
         host: The mysql database host
