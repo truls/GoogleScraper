@@ -58,7 +58,8 @@ class SelScrape(SearchEngineScrape, threading.Thread):
         'yandex': '.pager__button_kind_next',
         'bing': '.sb_pagN',
         'yahoo': '#pg-next',
-        'baidu': '.n',
+        #'baidu': '.n',
+        'baidu': '#page > a:last-child',
         'ask': '#paging div a.txt3.l_nu',
         'blekko': '',
         'duckduckgo': ''
@@ -341,27 +342,42 @@ class SelScrape(SearchEngineScrape, threading.Thread):
     def _goto_next_page(self):
         """Click the next page element.
         """
-        element = self._find_next_page_element()
 
-        if hasattr(element, 'click'):
-            next_url = element.get_attribute('href')
+        next_url = "<not found>"
+    
+        dsecs = 30 # seconds * 10
+        while dsecs > 0:
             try:
+                element = self._find_next_page_element()
+                if hasattr(element, 'click'):
+                    next_url = element.get_attribute('href')
+                    element.click()
+                print("state:", dsecs)
+                break
+            except WebDriverException as e:
+                pass
+                #print(str(e))
+
+        if dsecs > 0:
+            # Fall through to fallback if we didn't manage to go to next page
+            # before timeout
+            return(next_url)
+            
+
+        # See http://stackoverflow.com/questions/11908249/debugging-element-is-not-clickable-at-point-error
+        # first move mouse to the next element, some times the element is not visibility, like blekko.com
+        selector = self.next_page_selectors[self.search_engine_name]
+        if selector:
+            try:
+                next_element = WebDriverWait(self.webdriver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
+                webdriver.ActionChains(self.webdriver).move_to_element(next_element).perform()
+                # wait until the next page link emerges
+                WebDriverWait(self.webdriver, 8).until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
+                element = self.webdriver.find_element_by_css_selector(selector)
+                next_url = element.get_attribute('href')
                 element.click()
             except WebDriverException:
-                # See http://stackoverflow.com/questions/11908249/debugging-element-is-not-clickable-at-point-error
-                # first move mouse to the next element, some times the element is not visibility, like blekko.com
-                selector = self.next_page_selectors[self.search_engine_name]
-                if selector:
-                    try:
-                        next_element = WebDriverWait(self.webdriver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
-                        webdriver.ActionChains(self.webdriver).move_to_element(next_element).perform()
-                        # wait until the next page link emerges
-                        WebDriverWait(self.webdriver, 8).until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
-                        element = self.webdriver.find_element_by_css_selector(selector)
-                        next_url = element.get_attribute('href')
-                        element.click()
-                    except WebDriverException:
-                        pass
+                pass
 
             return next_url
 
@@ -376,6 +392,7 @@ class SelScrape(SearchEngineScrape, threading.Thread):
         if self.search_type == 'normal':
             selector = self.next_page_selectors[self.search_engine_name]
             try:
+
                 # wait until the next page link emerges
                 WebDriverWait(self.webdriver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
                 return self.webdriver.find_element_by_css_selector(selector)
@@ -446,6 +463,7 @@ class SelScrape(SearchEngineScrape, threading.Thread):
                 continue
 
             super().detection_prevention_sleep()
+
             super().keyword_info()
 
             for self.page_number in self.pages_per_keyword:
@@ -463,8 +481,9 @@ class SelScrape(SearchEngineScrape, threading.Thread):
                 # in the next iteration.
                 if self.page_number in self.pages_per_keyword:
                     self.next_url = self._goto_next_page()
+                    print("Next url:", self.next_url)
                     self.requested_at = datetime.datetime.utcnow()
-                    
+                    #time.sleep(4)
                     if not self.next_url:
                         break
 
