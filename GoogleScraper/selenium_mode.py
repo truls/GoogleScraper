@@ -366,12 +366,10 @@ class SelScrape(SearchEngineScrape, threading.Thread):
                 or the handle to the search input field.
         """
 
-        def find_visible_search_input(driver):
-            input_field = driver.find_element(*self._get_search_input_field())
-            return input_field
-
         try:
-            search_input = WebDriverWait(self.webdriver, max_wait).until(find_visible_search_input)
+            WebDriverWait(self.webdriver, max_wait).until(\
+                           EC.visibility_of_element_located(self._get_search_input_field()))
+            search_input = self.webdriver.find_element(*self._get_search_input_field())
             return search_input
         except TimeoutException as e:
             logger.error('{}: TimeoutException waiting for search input field: {}'.format(self.name, e))
@@ -418,7 +416,6 @@ class SelScrape(SearchEngineScrape, threading.Thread):
             # before timeout
             return(next_url)
             
-
         # See http://stackoverflow.com/questions/11908249/debugging-element-is-not-clickable-at-point-error
         # first move mouse to the next element, some times the element is not visibility, like blekko.com
         selector = self.next_page_selectors[self.search_engine_name]
