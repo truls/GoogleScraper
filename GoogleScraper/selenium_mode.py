@@ -518,7 +518,9 @@ class SelScrape(SearchEngineScrape, threading.Thread):
 
             super().keyword_info()
 
-            for self.page_number in self.pages_per_keyword:
+            num_pages_per_keyword = sorted(self.pages_per_keyword)[-1]
+
+            for self.page_number in range(num_pages_per_keyword):
 
                 self.wait_until_serp_loaded()
 
@@ -531,9 +533,12 @@ class SelScrape(SearchEngineScrape, threading.Thread):
 
                 # Click the next page link not when leaving the loop
                 # in the next iteration.
-                if self.page_number in self.pages_per_keyword:
+                cur_url = ""
+                if self.page_number <= num_pages_per_keyword:
                     self.next_url = self._goto_next_page()
-                    print("Next url:", self.next_url)
+                    if self.next_url == cur_url:
+                        logger.warning("Previous and next search page had same URL. Results may be fishy")
+                    cur_url = self.next_url
                     self.requested_at = datetime.datetime.utcnow()
                     #time.sleep(4)
                     if not self.next_url:

@@ -67,12 +67,21 @@ def default_scrape_jobs_for_keywords(keywords, search_engines, scrape_method, nu
     Returns:
         A dict of scrapejobs.
     """
+
     for keyword in keywords:
         for search_engine in search_engines:
-            for page in range(1, num_pages+1):
+            if scrape_method == "selenium":
                 yield {
                     'query': keyword,
                     'search_engine': search_engine,
                     'scrape_method': scrape_method,
-                    'page_number': page
+                    'page_number': num_pages
                 }
+            else:
+                for page in range(1, num_pages+1):
+                    yield {
+                    'query': keyword,
+                    'search_engine': search_engine,
+                    'scrape_method': scrape_method,
+                    'page_number': page
+                    }
