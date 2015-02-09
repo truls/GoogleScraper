@@ -16,6 +16,7 @@ try:
     from selenium.common.exceptions import ElementNotVisibleException
     from selenium.webdriver.common.keys import Keys
     from selenium.webdriver.common.by import By
+    from selenium.webdriver.common.action_chains import ActionChains
     from selenium.webdriver.support.ui import WebDriverWait  # available since 2.4.0
     from selenium.webdriver.support import expected_conditions as EC  # available since 2.26.0
     from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -98,6 +99,51 @@ class SelScrape(SearchEngineScrape, threading.Thread):
         'blekko': None,
     }
 
+    def click_when_found(self, sel, timeout = 10):
+        WebDriverWait(self.webdriver, timeout).until(EC.visibility_of_element_located(sel))
+        el = self.webdriver.find_element(*sel)
+        el.click()
+
+    def google_set_results_per_page(self, n):
+        self.click_when_found((By.LINK_TEXT, "Settings"))
+        self.click_when_found((By.LINK_TEXT, "Search settings"))
+        self.click_when_found((By.CSS_SELECTOR, "#instant-radio > div:last-child"))
+
+        el = self.webdriver.find_element_by_css_selector("#resnumSlider div.goog-slider-thumb")
+        to = self.webdriver.find_element_by_css_selector("#slruler > .slmarker:last-child")
+        ActionChains(self.webdriver).drag_and_drop(el, to).perform()
+
+        self.click_when_found((By.CSS_SELECTOR, "#form-buttons > div:first-child"))
+        self.webdriver.switch_to_alert().dismiss()
+
+    def bing_set_results_per_page(self, n):
+        self.click_when_found((By.CSS_SELECTOR, ".sw_pref"))
+        self.click_when_found((By.LINK_TEXT, "WEB"))
+
+        el = self.webdriver.find_element_by_id('rpp')
+        opts = el.find_elements_by_tag_name('option')
+        for opt in opts:
+            if opt.get_attribute('value') == "50":
+                opt.click()
+        el.submit()
+
+    def baidu_set_results_per_page(self, n):
+        self.webdriver.get("http://www.baidu.com/gaoji/preferences.html")
+        el = self.webdriver.find_element_by_id('nr')
+        el.click()
+        opts = el.find_elements_by_tag_name('option')
+
+        for opt in opts:
+            if opt.get_attribute('value') == "100":
+            # This is wierd, but we need to sleep here for a rather long time
+                time.sleep(1)
+                opt.click()
+
+        self.webdriver.find_element_by_id('save').click()
+        time.sleep(1)
+        self.webdriver.switch_to_alert().dismiss()
+
+
     def __init__(self, *args, captcha_lock=None, browser_num=1, **kwargs):
         """Create a new SelScraper thread Instance.
 
@@ -118,6 +164,13 @@ class SelScrape(SearchEngineScrape, threading.Thread):
 
         # get the base search url based on the search engine.
         self.base_search_url = get_base_search_url_by_search_engine(self.search_engine_name, self.scrape_method)
+
+        self.set_results_per_page = {
+            "google": self.google_set_results_per_page,
+            "bing": self.bing_set_results_per_page,
+            "baidu": self.baidu_set_results_per_page
+        }
+
         super().instance_creation_info(self.__class__.__name__)
 
     def set_proxy(self):
@@ -292,6 +345,8 @@ class SelScrape(SearchEngineScrape, threading.Thread):
             self.starting_point = self.base_search_url
 
         self.webdriver.get(self.starting_point)
+
+        self.set_results_per_page[self.search_engine_name](0)
 
     def _get_search_input_field(self):
         """Get the search input field for the current search_engine.
