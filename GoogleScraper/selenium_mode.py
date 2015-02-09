@@ -105,8 +105,8 @@ class SelScrape(SearchEngineScrape, threading.Thread):
         el.click()
 
     def google_set_results_per_page(self, n):
-        self.click_when_found((By.LINK_TEXT, "Settings"))
-        self.click_when_found((By.LINK_TEXT, "Search settings"))
+        self.click_when_found((By.CSS_SELECTOR, "#fsettl"))
+        self.click_when_found((By.CSS_SELECTOR, "#fsett > a:first-child"))
         self.click_when_found((By.CSS_SELECTOR, "#instant-radio > div:last-child"))
 
         el = self.webdriver.find_element_by_css_selector("#resnumSlider div.goog-slider-thumb")
