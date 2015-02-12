@@ -9,6 +9,7 @@ import time
 import math
 import re
 import sys
+import traceback
 
 try:
     from selenium import webdriver
@@ -59,8 +60,8 @@ class SelScrape(SearchEngineScrape, threading.Thread):
         'yandex': '.pager__button_kind_next',
         'bing': '.sb_pagN',
         'yahoo': '#pg-next',
-        #'baidu': '.n',
-        'baidu': '#page > a:last-child',
+        #'baidu': '.n_)',
+        'baidu': '#page > a.n:last-child',
         'ask': '#paging div a.txt3.l_nu',
         'blekko': '',
         'duckduckgo': ''
@@ -398,23 +399,48 @@ class SelScrape(SearchEngineScrape, threading.Thread):
 
         next_url = "<not found>"
     
-        dsecs = 30 # seconds * 10
+        try:
+            if self.search_engine_name == "baidu":
+                mask = WebDriverWait(self.webdriver, 1).until(\
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "#_mask")))
+                WebDriverWait(self.webdriver, 20).until(\
+                            EC.staleness_of(mask))
+        except:
+            pass
+
+        dsecs = 15 # seconds * 10
         while dsecs > 0:
             try:
                 element = self._find_next_page_element()
                 if hasattr(element, 'click'):
                     next_url = element.get_attribute('href')
                     element.click()
-                print("state:", dsecs)
-                break
+
+                    # Baidu nextpage requires special attention. Upon clicking
+                    # the site will be covered by a div called #_mask. We need
+                    # to wait for it to appear and then to go away again in order
+                    # to know that a new page has been loaded
+                    if self.search_engine_name == "baidu":
+                        mask = WebDriverWait(self.webdriver, 2).until(\
+                            EC.presence_of_element_located((By.CSS_SELECTOR, "#_mask")))
+                        WebDriverWait(self.webdriver, 20).until(\
+                            EC.staleness_of(mask))
+
+                    break
             except WebDriverException as e:
-                pass
-                #print(str(e))
+                traceback.print_exc()
+
+            time.sleep(0.1)
+            dsecs =- 1
+            print("state:", dsecs)
+                    
 
         if dsecs > 0:
             # Fall through to fallback if we didn't manage to go to next page
             # before timeout
             return(next_url)
+        #else:
+        #    return None
             
         # See http://stackoverflow.com/questions/11908249/debugging-element-is-not-clickable-at-point-error
         # first move mouse to the next element, some times the element is not visibility, like blekko.com
@@ -426,14 +452,15 @@ class SelScrape(SearchEngineScrape, threading.Thread):
                 # wait until the next page link emerges
                 WebDriverWait(self.webdriver, 8).until(EC.visibility_of_element_located((By.CSS_SELECTOR, selector)))
                 element = self.webdriver.find_element_by_css_selector(selector)
+                #print(element)
                 next_url = element.get_attribute('href')
                 element.click()
+                return next_url
             except WebDriverException:
                 pass
 
-            return next_url
+        return None
 
-        return element
 
     def _find_next_page_element(self):
         """Finds the element that locates the next page for any search engine.
@@ -493,6 +520,16 @@ class SelScrape(SearchEngineScrape, threading.Thread):
         Clicks the next link while pages_per_keyword is not reached.
         """
         for self.query, self.pages_per_keyword in self.jobs.items():
+
+            if self.search_engine_name == "baidu":
+                try:
+                    mask = WebDriverWait(self.webdriver, 2).until(\
+                                      EC.presence_of_element_located((By.CSS_SELECTOR, "#_mask")))
+                    WebDriverWait(self.webdriver, 20).until(\
+                            EC.staleness_of(mask))
+                    print("Pre-query guard activated")
+                except:
+                    pass
 
             self.search_input = self._wait_until_search_input_field_appears()
 
